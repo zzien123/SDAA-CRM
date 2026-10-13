@@ -15,7 +15,7 @@ const SORTS: Record<string, string> = {
 const int = (v?: string) => (v && /^\d+$/.test(v) ? Number(v) : null);
 
 export function propertyWhere(orgId: string, f: PropertyFilters) {
-  const c = [sql`org_id = ${orgId}`];
+  const c = [sql`property_overview.org_id = ${orgId}`];
   if (f.q) for (const w of f.q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 5)) c.push(sql`(search_text ilike ${"%" + w + "%"} or apns like ${"%" + w + "%"} or lower(owner_name) like ${"%" + w + "%"})`);
   if (f.city) c.push(sql`city = ${f.city}`);
   if (f.zip) c.push(sql`zip = any(${f.zip.split(/[,\s]+/).filter(Boolean)})`);

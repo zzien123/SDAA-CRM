@@ -1,52 +1,15 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { sql } from "@/lib/db";
-import { requireSession, type Session } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import { classifyEntity, displayCase, formatPhone, normalizeAddress, normalizeName, phoneDigits, zip5 } from "@/lib/normalize";
 import { rollbackImport } from "@/lib/importer/engine";
 
-// ---------------------------------------------------------------------------- helpers
-export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
-
-function fd(form: FormData) {
-  const o: Record<string, string | null> = {};
-  for (const [k, v] of form.entries()) {
-    if (typeof v !== "string") continue;
-    const t = v.trim();
-    o[k] = t === "" ? null : t;
-  }
-  return o;
-}
-const optNum = z.preprocess((v) => (v === null || v === undefined || v === "" ? null : Number(String(v).replace(/[$,%\s]/g, ""))), z.number().finite().nullable());
-const optInt = z.preprocess((v) => (v === null || v === undefined || v === "" ? null : Number(String(v).replace(/[,\s]/g, ""))), z.number().int().nullable());
-const optStr = z.string().nullable().optional().transform((v) => v ?? null);
-const optDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional().transform((v) => v ?? null);
-const optUuid = z.string().uuid().nullable().optional().transform((v) => v ?? null);
-
-type Owned = (typeof OWNED)[number];
-const OWNED = ["properties", "contacts", "entities", "opportunities", "companies", "tasks", "buyer_criteria", "pipeline_stages", "imports", "ownership_reviews", "entity_people", "property_contacts", "activities", "parcels", "property_ownerships"] as const;
-
-async function assertOwned(s: Session, table: Owned, id: string | null | undefined) {
-  if (!id) return;
-  if (!OWNED.includes(table)) throw new Error("Bad table");
-  const [r] = await sql`select 1 from ${sql(table)} where id = ${id} and org_id = ${s.orgId}`;
-  if (!r) throw new Error(`Not found: ${table}`);
-}
-async function audit(s: Session, table: string, id: string, action: string, changes?: unknown) {
-  await sql`insert into audit_log (org_id, user_id, table_name, record_id, action, changes)
-            values (${s.orgId}, ${s.userId}, ${table}, ${id}, ${action}, ${changes ? sql.json(changes as never) : null})`;
-}
-function fail(e: unknown): ActionResult {
-  if (e instanceof z.ZodError) return { ok: false, error: e.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") };
-  return { ok: false, error: (e as Error).message ?? "Something went wrong" };
-}
-function refresh(...paths: string[]) {
-  for (const p of paths) revalidatePath(p);
-  revalidatePath("/");
-}
+import { assertOwned, audit, fail, fd, optDate, optInt, optNum, optStr, optUuid, refresh, type ActionResult } from "@/lib/action-helpers";
+import type { Session } from "@/lib/auth";
+export type { ActionResult };
 
 // ---------------------------------------------------------------------------- activities
 const ActivitySchema = z.object({
@@ -581,6 +544,11 @@ export async function saveOpportunity(_: unknown, form: FormData): Promise<Actio
     } else {
       const [o] = await sql`insert into opportunities ${sql({ ...row, org_id: s.orgId, owner_user_id: s.userId } as never)} returning id`;
       id = o.id;
+      // opened from a prospecting queue: mark that owner converted in the list
+      if (raw.prospect_list_id && d.seller_entity_id) {
+        await sql`update prospect_list_items set status = 'converted', opportunity_id = ${id}
+                  where list_id = ${raw.prospect_list_id} and entity_id = ${d.seller_entity_id} and org_id = ${s.orgId}`;
+      }
       if (d.property_id && stage.kind === "open") await sql`update properties set listing_status = 'off_market_opportunity' where id = ${d.property_id} and listing_status = 'none'`;
     }
     if (d.property_id && stage.kind === "under_contract") await sql`update properties set listing_status = 'in_escrow' where id = ${d.property_id}`;

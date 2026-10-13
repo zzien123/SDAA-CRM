@@ -200,6 +200,8 @@ export async function runPropertyOwnerImport(opts: {
     const ownershipSeen = new Set<string>();
     const ownerOfRecordFor = new Map<string, string>();
     const createdPropIds = new Set<string>();
+    const buildingKeys = new Map<string, string>();
+    const newPropsById = new Map<string, Record<string, unknown>>();
 
     for (const row of good) {
       for (const f of row.property.data_flags) {
@@ -207,22 +209,31 @@ export async function runPropertyOwnerImport(opts: {
         stats.flags[k] = (stats.flags[k] ?? 0) + 1;
       }
       const addrKey = `${row.property.address_normalized}|${(row.property.city ?? "").toUpperCase()}`;
-      let propertyId = (row.apn && existingParcels.get(row.apn)) || existingAddr.get(addrKey);
-      if (propertyId && row.apn && !existingParcels.has(row.apn)) row.property.data_flags.push("multi_parcel");
+      // County lists repeat a complex's totals (units + land + improvement value) on every parcel of the complex.
+      // Same owner + identical totals => one property with several APNs, not N copies of the building.
+      const p = row.property;
+      const buildingKey = p.units && p.land_value && p.improvement_value ? `${row.owner.key}|${p.units}|${p.land_value}|${p.improvement_value}` : null;
+      let propertyId = (row.apn && existingParcels.get(row.apn)) || existingAddr.get(addrKey) || (buildingKey ? buildingKeys.get(buildingKey) : undefined);
+      if (propertyId && row.apn && !existingParcels.has(row.apn)) {
+        const created = newPropsById.get(propertyId);
+        if (created && !(created.data_flags as string[]).includes("multi_parcel")) (created.data_flags as string[]).push("multi_parcel");
+        stats.flags.multi_parcel = (stats.flags.multi_parcel ?? 0) + 1;
+      }
       const isNew = !propertyId;
       if (!propertyId) {
         propertyId = randomUUID();
         createdPropIds.add(propertyId);
-        newProps.push({
-          id: propertyId, org_id: orgId, ...row.property, source, source_import_id: importId, created_by: userId,
-        });
+        const prop = { id: propertyId, org_id: orgId, ...row.property, data_flags: [...row.property.data_flags], source, source_import_id: importId, created_by: userId };
+        newProps.push(prop);
+        newPropsById.set(propertyId, prop);
         existingAddr.set(addrKey, propertyId);
+        if (buildingKey) buildingKeys.set(buildingKey, propertyId);
       } else if (!createdPropIds.has(propertyId)) {
         touchedExisting.set(propertyId, row);
       }
       if (row.apn && !existingParcels.has(row.apn)) {
         existingParcels.set(row.apn, propertyId);
-        newParcels.push({ id: randomUUID(), org_id: orgId, property_id: propertyId, apn: apnDisplay(row.apnRaw), apn_raw: row.apnRaw });
+        newParcels.push({ id: randomUUID(), org_id: orgId, property_id: propertyId, apn: apnDisplay(row.apnRaw), apn_raw: row.apnRaw, situs_address: row.property.street_address });
       }
 
       const ownerId = entityIdFor(row.owner);

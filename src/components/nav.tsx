@@ -12,7 +12,7 @@ const NAV: { href: string; label: string; icon: React.ElementType; phase?: strin
   { href: "/properties", label: "Properties", icon: Building2 },
   { href: "/owners", label: "Owners & Contacts", icon: Landmark },
   { href: "/buyers", label: "Buyers", icon: Briefcase },
-  { href: "/prospecting", label: "Prospecting", icon: Target, phase: "Phase 2" },
+  { href: "/prospecting", label: "Prospecting", icon: Target },
   { href: "/opportunities", label: "Opportunities", icon: KanbanSquare },
   { href: "/transactions", label: "Transactions", icon: FileSignature, phase: "Phase 4" },
   { href: "/map", label: "Map", icon: Map, phase: "Phase 2" },

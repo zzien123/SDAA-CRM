@@ -7,6 +7,7 @@ import { Badge, Card, CardHeader, Empty, confidenceTone } from "@/components/ui"
 import { Disclosure } from "@/components/forms";
 import { LogActivity, NewTask, TaskList, Timeline, type TaskRow, type TimelineItem } from "@/components/activity";
 import { EntityEditForm, LinkPersonForm, PromoteCareOf, Unlink } from "./client";
+import { DncToggle } from "../../prospecting/client";
 import { ago, date, label, money, num } from "@/lib/utils";
 
 export default async function OwnerPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +42,8 @@ export default async function OwnerPage({ params }: { params: Promise<{ id: stri
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-semibold tracking-tight">{e.name}</h1>
           <Badge>{label(e.entity_type)}</Badge>
+          {e.do_not_contact && <Badge tone="red">Do not contact{e.dnc_reason ? ` · ${e.dnc_reason}` : ""}</Badge>}
+          <span className="ml-auto"><DncToggle entityId={id} on={e.do_not_contact} /></span>
         </div>
         <div className="mt-0.5 text-sm text-ink-500">
           {props.length} propert{props.length === 1 ? "y" : "ies"} · {num(units)} units · {money(assessed, { compact: true })} assessed

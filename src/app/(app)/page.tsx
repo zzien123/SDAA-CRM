@@ -21,6 +21,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     : feed === "outreach" ? sql`and a.type in ('call','email','text','letter','meeting','in_person')`
     : feed === "deals" ? sql`and a.opportunity_id is not null` : sql``;
 
+  const prospectDue = await sql`
+    select l.id, l.name,
+      count(distinct i.entity_id) filter (where i.next_action_date <= ${t} and i.status in ('attempting','connected','interested','not_interested'))::int as due,
+      count(distinct i.entity_id) filter (where i.status = 'queued')::int as fresh
+    from prospect_lists l join prospect_list_items i on i.list_id = l.id
+    join entity_contactability ec on ec.entity_id = i.entity_id
+    where l.org_id = ${s.orgId} and not l.is_archived and not ec.owner_suppressed
+    group by l.id having count(*) filter (where i.next_action_date <= ${t} and i.status in ('attempting','connected','interested','not_interested')) > 0
+        or count(*) filter (where i.status = 'queued') > 0
+    order by 3 desc, l.created_at desc limit 5`;
   const [[k], [pipe], ownerTasks, ownerFollowups, buyerFollowups, exchanges, negotiations, attention, openToSell, newOpps, reviews, recentConvos, feedItems, pools] = await Promise.all([
     sql`select
           (select count(*) from properties where org_id = ${s.orgId})::int as properties,
@@ -134,6 +144,14 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
         <Card>
           <CardHeader title={`1 · Owners to contact today${actionCount ? ` (${actionCount})` : ""}`} />
           <div className="px-4 py-1"><TaskList tasks={ownerTasks as unknown as TaskRow[]} /></div>
+          {prospectDue.length > 0 && (
+            <ul className="divide-y divide-ink-100 border-t border-ink-100 bg-navy-50/40">
+              {prospectDue.map((l) => (
+                <li key={l.id} className="px-4 py-2 text-[13px]"><Link href={`/prospecting/${l.id}`} className="font-medium text-navy-800 hover:underline">{l.name}</Link>
+                  <span className="text-2xs text-ink-500"> · {l.due ? `${l.due} follow-ups due · ` : ""}{num(l.fresh)} not yet contacted</span></li>
+              ))}
+            </ul>
+          )}
           {ownerFollowups.length > 0 && (
             <ul className="divide-y divide-ink-100 border-t border-ink-100">
               {ownerFollowups.map((c) => (

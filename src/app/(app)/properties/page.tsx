@@ -4,6 +4,8 @@ import { sql } from "@/lib/db";
 import { propertyOrder, propertyWhere, type PropertyFilters } from "@/lib/property-filters";
 import { Badge, ButtonLink, Card, Empty, Input, PageHeader, Select } from "@/components/ui";
 import { ago, label, money, num, qs } from "@/lib/utils";
+import { Disclosure } from "@/components/forms";
+import { NewListForm } from "../prospecting/client";
 
 const PAGE = 50;
 
@@ -67,6 +69,11 @@ export default async function Properties({ searchParams }: { searchParams: Promi
           </div>
         </form>
       </Card>
+      {Object.keys(base).some((k) => base[k] && k !== "sort" && k !== "dir") && (
+        <Card className="mb-4 px-4 py-3">
+          <Disclosure label={`Save these ${num(n)} properties as a prospect list`}><NewListForm filters={base} /></Disclosure>
+        </Card>
+      )}
       <Card className="overflow-x-auto">
         <table className="table-compact w-full">
           <thead><tr>

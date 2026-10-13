@@ -19,7 +19,7 @@ const FLAG_TEXT: Record<string, string> = {
   address_range: "Address is a range (multiple buildings or street numbers)",
   missing_zip: "ZIP missing",
   missing_apn: "No APN",
-  multi_parcel: "Matched to this property by address; multiple APNs",
+  multi_parcel: "Multiple APNs: the county list repeated this complex's totals on each parcel, so they were merged into one property",
 };
 
 export default async function PropertyPage({ params }: { params: Promise<{ id: string }> }) {

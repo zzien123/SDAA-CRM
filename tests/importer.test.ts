@@ -11,6 +11,8 @@ const rows = [
   { OwnerName: "WERBY L L C", InCareOf: "RICHARD A WERBY-PTR", OwnerAddress: "1770 BLACKBIRD CIR", OwnerCity: "CARLSBAD", OwnerState: "CA", OwnerZip: 92011, Owner: "(760) 603-0007", ParcelNo: "150  375 012", BldgAddress: "901 S TREMONT ST", BldgCity: "OCEANSIDE", BldgZip: 92054, Units: 12, YearBuilt: 1952, SaleDate: new Date(Date.UTC(2003, 0, 30)), SecondOwnerName: null, Type: "UNKNOWN", Floors: null, LandValue: 212980, BldgValue: 298178 },
   // same owner + same mailing address => same entity (portfolio)
   { OwnerName: "WERBY LLC", InCareOf: null, OwnerAddress: "1770 Blackbird Circle", OwnerCity: "CARLSBAD", OwnerState: "CA", OwnerZip: 92011, Owner: "(760) 603-0007", ParcelNo: "150  375 013", BldgAddress: "905 S TREMONT ST", BldgCity: "OCEANSIDE", BldgZip: 92054, Units: 8, YearBuilt: 1955, SaleDate: new Date(Date.UTC(2003, 0, 30)), SecondOwnerName: null, Type: "STUCCO", Floors: 2, LandValue: 1, BldgValue: 1 },
+  // same owner, identical complex totals on another parcel => same property, second APN
+  { OwnerName: "SYBIL C CALE", InCareOf: null, OwnerAddress: "4634 BARRINGTON CT", OwnerCity: "BONITA", OwnerState: "CA", OwnerZip: 91902, Owner: "(619) 472-5393", ParcelNo: "626  500 018", BldgAddress: "1027 12TH ST", BldgCity: "IMPERIAL BEACH", BldgZip: 91932, Units: 4, YearBuilt: 1986, SaleDate: new Date(Date.UTC(2012, 3, 12)), SecondOwnerName: "CALE SURVIVORS TRUST", Type: "UNKNOWN", Floors: null, LandValue: 74757, BldgValue: 335974 },
   // shifted row => rejected
   { OwnerName: "HENG & AW", InCareOf: "X", OwnerAddress: null, OwnerCity: "3263 CRISTOBAL WAY", OwnerState: "SPRING VALLEY", OwnerZip: "CA", Owner: 91977, ParcelNo: "(760) 344-0888", BldgAddress: "584  480 049", BldgCity: "4086 WINONA AVE", BldgZip: "SAN DIEGO", Units: 92105, YearBuilt: 7, SaleDate: 1974, SecondOwnerName: null, Type: null, Floors: "STUCCO", LandValue: 2, BldgValue: 301816 },
 ];
@@ -47,6 +49,12 @@ test("import → re-import is idempotent → rollback", async () => {
   assert.equal(seaward.units, null, "0 units stored as unknown");
   assert.ok(seaward.data_flags.includes("units_unknown"));
   assert.equal(seaward.last_sale_date, null);
+
+  const [merged] = await sql`select count(*)::int as n, (select property_id from parcels where situs_address = '1027 12th St') as pid from parcels
+                             where property_id = (select property_id from parcels where situs_address = '1027 12th St')`;
+  assert.equal(merged.n, 2, "repeated complex totals merged into one property with 2 APNs");
+  const [found] = await sql`select id from properties where search_text like '%1027 12th st%'`;
+  assert.equal(found?.id, merged.pid, "second parcel address is searchable");
 
   const [cale] = await sql`select count(*)::int as n from property_ownerships po join properties p on p.id = po.property_id where p.street_address = '1023-25 12th St' and po.vesting_role = 'second_name_on_title'`;
   assert.equal(cale.n, 1);

@@ -20,6 +20,7 @@ export function OpportunityForm({ o, stages, labels, defaults }: {
   return (
     <ActionForm action={saveOpportunity} resetOnSuccess={false} className="space-y-4">
       {o?.id ? <input type="hidden" name="id" value={String(o.id)} /> : null}
+      {o?.prospect_list_id ? <input type="hidden" name="prospect_list_id" value={String(o.prospect_list_id)} /> : null}
       <Card className="grid gap-3 p-4 sm:grid-cols-4">
         <Field label="Deal name *" className="sm:col-span-2"><Input name="name" required defaultValue={v(o, "name") || labels.property || ""} /></Field>
         <Field label="Stage"><Select name="stage_id" defaultValue={v(o, "stage_id") || stages[0]?.id}>{stages.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</Select></Field>
