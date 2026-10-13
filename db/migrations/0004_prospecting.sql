@@ -1,4 +1,4 @@
-set search_path = crm, public;
+set search_path = crm, public, extensions;
 
 -- ---------------------------------------------------------------------------
 -- Suppression: owner-level do-not-contact + value-level suppressions that apply everywhere

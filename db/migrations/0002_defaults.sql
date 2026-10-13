@@ -1,4 +1,4 @@
-set search_path = crm, public;
+set search_path = crm, public, extensions;
 
 -- Creates an organization with the default 12-stage pipeline. Idempotent per org name.
 create or replace function crm.bootstrap_org(p_name text) returns uuid language plpgsql as $$

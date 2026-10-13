@@ -1,4 +1,4 @@
-set search_path = crm, public;
+set search_path = crm, public, extensions;
 
 -- Row-level provenance for every import so it can be rolled back precisely.
 create table import_records (

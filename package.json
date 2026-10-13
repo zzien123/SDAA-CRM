@@ -12,7 +12,8 @@
     "test": "tsx --env-file=.env.local --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "import:rollback": "tsx --env-file=.env.local scripts/rollback.ts",
-    "entities:reclassify": "tsx --env-file=.env.local scripts/reclassify-entities.ts"
+    "entities:reclassify": "tsx --env-file=.env.local scripts/reclassify-entities.ts",
+    "vercel-build": "tsx scripts/migrate.ts && next build"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

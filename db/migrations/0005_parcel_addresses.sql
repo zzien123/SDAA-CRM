@@ -1,4 +1,4 @@
-set search_path = crm, public;
+set search_path = crm, public, extensions;
 
 -- County lists repeat a complex's building totals on every parcel. Those rows are merged into one property
 -- with several APNs; each parcel keeps its own situs address so search still finds it.

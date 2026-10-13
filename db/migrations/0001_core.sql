@@ -6,7 +6,7 @@ create extension if not exists pg_trgm;
 create extension if not exists pgcrypto;
 
 create schema if not exists crm;
-set search_path = crm, public;
+set search_path = crm, public, extensions;
 
 -- ---------------------------------------------------------------------------
 -- Tenancy & users (single broker today, team-ready)

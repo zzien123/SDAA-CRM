@@ -5,7 +5,8 @@ import { join } from "node:path";
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is not set");
-const sql = postgres(url, { max: 1, onnotice: () => {} });
+// prepare:false so this also works through Supabase's transaction pooler (port 6543)
+const sql = postgres(url, { max: 1, onnotice: () => {}, prepare: false });
 
 async function main() {
   await sql`create table if not exists public.schema_migrations (name text primary key, applied_at timestamptz default now())`;

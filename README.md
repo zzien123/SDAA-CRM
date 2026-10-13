@@ -22,11 +22,14 @@ npm run dev                     # http://localhost:3000
 
 ## Deploy (Supabase + Vercel)
 
-1. **Supabase:** create a project. Copy the *Session pooler* connection string (port 5432) into `DATABASE_URL`, plus the project URL and anon key.
-2. **Migrate:** from your machine, `DATABASE_URL=... npm run db:migrate`.
-3. **Auth:** Supabase → Authentication → URL Configuration: set *Site URL* to your Vercel URL and add `https://<your-app>.vercel.app/auth/callback` to redirect URLs. Email magic link is on by default.
-4. **Vercel:** import the repo, add the env vars from `.env.example` (do **not** set `AUTH_MODE`), deploy.
-5. **Load data:** Import & Data Quality → Import file (files up to ~4 MB through Vercel; larger files: `npm run import:file` from your machine with the production `DATABASE_URL`).
+1. **Supabase:** create a project (region: West US). Click **Connect** → copy the **Transaction pooler** URI (port 6543) and put your
+   database password in it. Copy the project URL and anon/publishable key from Project Settings → API.
+2. **Auth:** Authentication → URL Configuration: *Site URL* = `https://<your-app>.vercel.app`, add `https://<your-app>.vercel.app/auth/callback`
+   to Redirect URLs.
+3. **Vercel:** Add New → Project → import `SDAA-CRM`. Before deploying, add env vars: `DATABASE_URL`, `NEXT_PUBLIC_SUPABASE_URL`,
+   `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `ALLOWED_EMAILS`, `ORG_NAME`. Do **not** set `AUTH_MODE`. Deploy.
+   The `vercel-build` script runs database migrations before every build, so there's nothing to run by hand.
+4. **Load data:** sign in → Import & Data Quality → Import file → `SAN_DIEGO_2026Edition.xlsx`.
 
 Security notes: all tables live in the `crm` schema, which Supabase's auto-generated REST API does not expose, and RLS is enabled with no
 policies, so the anon key can't read CRM data. Only the Next.js server (holding `DATABASE_URL`) can. Every query is scoped to the user's org.
