@@ -5,6 +5,11 @@ import { join } from "node:path";
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("DATABASE_URL is not set");
+if (!/^postgres(ql)?:\/\/\S+@\S+:\d+\/\S+$/.test(url) || /\[YOUR-PASSWORD\]/i.test(url)) {
+  console.error(`\nDATABASE_URL doesn't look like a Postgres connection string (got "${url.replace(/:[^:@/]+@/, ":****@").slice(0, 60)}").\n` +
+    "Use Supabase → Connect → Transaction pooler, e.g. postgresql://postgres.abcd:PASSWORD@aws-0-us-west-1.pooler.supabase.com:6543/postgres\n");
+  process.exit(1);
+}
 // prepare:false so this also works through Supabase's transaction pooler (port 6543)
 const sql = postgres(url, { max: 1, onnotice: () => {}, prepare: false });
 
