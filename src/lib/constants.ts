@@ -1,0 +1,3 @@
+export const CATEGORIES = ["property_owner", "investor_buyer", "seller", "broker", "property_manager", "attorney", "lender", "escrow_officer", "title_rep", "contractor", "other_professional"];
+export const STATUSES = ["new", "attempting", "connected", "relationship", "client", "cold", "do_not_contact"];
+export const PROPERTY_ROLES: [string, string][] = [["property_manager", "Property manager"], ["owner_representative", "Owner's representative"], ["decision_maker", "Decision maker"], ["onsite_manager", "On-site manager"], ["listing_broker", "Listing broker"], ["lender", "Lender"], ["attorney", "Attorney"], ["other", "Other"]];

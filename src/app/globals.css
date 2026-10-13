@@ -2,20 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+:root { color-scheme: light; }
+body { @apply bg-white text-ink-900 antialiased; font-feature-settings: "tnum" 1, "cv11" 1; }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+@layer components {
+  .num { font-variant-numeric: tabular-nums; }
+  .table-compact th { @apply px-3 py-2 text-left text-2xs font-medium uppercase tracking-wide text-ink-500 bg-ink-50 border-b border-ink-200 whitespace-nowrap; }
+  .table-compact td { @apply px-3 py-2 text-[13px] border-b border-ink-100 align-top; }
+  .table-compact tbody tr:hover { @apply bg-navy-50/60; }
+  .field-label { @apply block text-2xs font-medium uppercase tracking-wide text-ink-500 mb-1; }
 }
