@@ -8,6 +8,7 @@ import { Disclosure } from "@/components/forms";
 import { LogActivity, NewTask, TaskList, Timeline, type TaskRow, type TimelineItem } from "@/components/activity";
 import { AddCoOwnerForm, ChangeOwnerForm, LinkContactForm, ParcelAdder, RemoveParcel, UnlinkContact } from "./client";
 import { PROPERTY_ROLES } from "@/lib/constants";
+import { BuyerMatches } from "@/components/buyer-matches";
 import { ago, date, label, money, num } from "@/lib/utils";
 
 const FLAG_TEXT: Record<string, string> = {
@@ -176,6 +177,8 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
             </ul>
             <div className="border-t border-ink-100 px-4 py-3"><LinkContactForm propertyId={id} /></div>
           </Card>
+
+          <BuyerMatches orgId={s.orgId} propertyId={id} opportunityId={opps.find((o) => o.kind === "open" || o.kind === "under_contract")?.id ?? null} address={p.street_address} />
 
           <Card>
             <CardHeader title="Activity" sub="Includes activity logged on this property's owners and deals" />

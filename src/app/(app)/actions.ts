@@ -619,3 +619,22 @@ export async function rollbackImportAction(importId: string): Promise<ActionResu
     return { ok: true };
   } catch (e) { return fail(e); }
 }
+
+// ---------------------------------------------------------------------------- buyer outreach from matches
+export async function createBuyerOutreach(propertyId: string, opportunityId: string | null, contactIds: string[]): Promise<ActionResult> {
+  try {
+    const s = await requireSession();
+    await assertOwned(s, "properties", propertyId);
+    await assertOwned(s, "opportunities", opportunityId);
+    if (!contactIds.length || contactIds.length > 100) throw new Error("Pick 1–100 buyers");
+    const ok = await sql`select id, full_name from contacts where org_id = ${s.orgId} and id = any(${contactIds}) and not do_not_contact`;
+    const [p] = await sql`select street_address from properties where id = ${propertyId}`;
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/Los_Angeles" });
+    if (ok.length) await sql`insert into tasks ${sql(ok.map((c) => ({
+      org_id: s.orgId, type: "follow_up_buyer", title: `Send ${p.street_address} to ${c.full_name}`, due_date: today, priority: 1,
+      contact_id: c.id, property_id: propertyId, opportunity_id: opportunityId, created_by: s.userId, assignee_user_id: s.userId,
+    })))}`;
+    refresh(`/properties/${propertyId}`, opportunityId ? `/opportunities/${opportunityId}` : "/tasks", "/tasks");
+    return { ok: true, id: String(ok.length) };
+  } catch (e) { return fail(e); }
+}

@@ -17,6 +17,7 @@ properties ────┼─ parcels (1..n APNs)             portfolios ── 
    ├── tasks (typed, recurring)
    └── documents (Supabase Storage paths, versioned)
 
+prospect_lists ── prospect_list_items (per property; queue groups by owner)   suppressions (phone / email / mailing)
 imports ── import_records (row-level provenance → rollback) · import_rejections · ownership_reviews
 audit_log
 ```
@@ -50,13 +51,32 @@ Transaction management will hang off `opportunities` (the stage kind `under_cont
 |---|---|---|
 | 1 | Auth, schema, property / owner / contact / entity / buyer profiles, notes + activity, imports, search, dashboard | **Done** |
 | 1+ | Basic opportunities, tasks, commission defaults, data-quality dashboard | **Done** (pulled forward; the dashboard needs them) |
-| 2 | Prospecting lists + outreach workflow, suppression, Kanban, ranked buyer matching, map + geocoding, forecasting | Next |
+| 2 | Prospecting lists, owner call queue, outreach logging, suppression + exports | **Done** |
+| 2 | Ranked buyer matching with reasons/conflicts → outreach tasks | **Done** |
+| 2 | Kanban board (drag/drop), commission forecast by month | **Done** |
+| 2 | Property map + geocoding | Next (needs Google/Mapbox key or Census batch geocode) |
 | 3 | Gmail, Google Calendar, AI summaries / follow-ups, document extraction w/ review, natural-language search | |
 | 4 | Transactions + deadline engine, comps DB, campaigns, underwriting integration, ownership graph, analytics | |
+
+## Prospecting rules
+
+- The queue works **owners**, not parcels: one touch updates every property that owner has on the list.
+- Default follow-up spacing: no answer 3d, voicemail 4d, sent 10d, talked 30–90d, interested 7d, not interested 180d. Override per touch.
+- "Do not contact" flags the owner, suppresses its phone and mailing address everywhere, and pulls it from every list.
+  Exports drop suppressed owners and blank suppressed phones/addresses.
+- County phones are **not** scrubbed against the National DNC Registry. Scrub before cold-calling.
+
+## Buyer matching
+
+`src/lib/matching.ts` scores each active criteria profile on market (30), price (25), units (20), type (10), equity (10) and live 1031 (5).
+Only preferences both sides know can score. Unknowns are listed, and any known mismatch makes it a conflict, ranked last.
+Equity check assumes ~35% down and says so. Price within 10% over max is a note, not a conflict.
 
 ## Known limitations
 
 - APNs are deduped on digits only and shown in the county file's grouping. A source using a different digit layout won't match automatically.
 - No geocoding yet (no lat/long in the source file). The map needs a Google or Mapbox key (Phase 2).
 - Owner-type classification is pattern-based. Roughly 2% land in `unknown`. Edit on the owner page; reclassify never touches manual edits.
+- County lists repeat a complex's totals on each parcel. Rows with the same owner + identical units + land + improvement values merge into
+  one property with several APNs (365 rows in the 2026 file). Two genuinely separate buildings with identical values to the dollar would also merge.
 - Uploads through Vercel are capped at ~4.5 MB per request. Use the CLI importer for bigger files.

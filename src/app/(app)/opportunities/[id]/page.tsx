@@ -8,6 +8,7 @@ import { Disclosure } from "@/components/forms";
 import { LogActivity, NewTask, TaskList, Timeline, type TaskRow, type TimelineItem } from "@/components/activity";
 import { OpportunityForm } from "@/components/opportunity-form";
 import { StageSelect } from "../stage-select";
+import { BuyerMatches } from "@/components/buyer-matches";
 import { date, money } from "@/lib/utils";
 
 export default async function OppPage({ params }: { params: Promise<{ id: string }> }) {
@@ -57,6 +58,7 @@ export default async function OppPage({ params }: { params: Promise<{ id: string
               </Disclosure>
             </div>
           </Card>
+          {o.property_id && <BuyerMatches orgId={s.orgId} propertyId={o.property_id} opportunityId={id} address={o.street_address} />}
           <Card>
             <CardHeader title="Activity" />
             <div className="border-b border-ink-100 p-4"><LogActivity links={{ opportunity_id: id, property_id: o.property_id ?? undefined, contact_id: o.seller_contact_id ?? undefined }} /></div>

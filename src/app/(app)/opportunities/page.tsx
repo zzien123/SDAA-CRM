@@ -4,11 +4,14 @@ import { sql } from "@/lib/db";
 import { commissionSql, orgSettings, stages } from "@/lib/queries";
 import { Badge, ButtonLink, Card, CardHeader, PageHeader, Stat } from "@/components/ui";
 import { StageSelect } from "./stage-select";
+import { Board } from "./board";
+import { Forecast } from "./forecast";
+import { cn } from "@/lib/utils";
 import { date, money, today } from "@/lib/utils";
 
-export default async function Opportunities({ searchParams }: { searchParams: Promise<{ closed?: string }> }) {
+export default async function Opportunities({ searchParams }: { searchParams: Promise<{ closed?: string; view?: string }> }) {
   const s = await requireSession();
-  const { closed } = await searchParams;
+  const { closed, view = "board" } = await searchParams;
   const d = await orgSettings(s.orgId);
   const [st, rows] = await Promise.all([
     stages(s.orgId),
@@ -19,7 +22,7 @@ export default async function Opportunities({ searchParams }: { searchParams: Pr
         from opportunities o join pipeline_stages st on st.id = o.stage_id
         left join properties p on p.id = o.property_id left join entities e on e.id = o.seller_entity_id
         left join contacts sc on sc.id = o.seller_contact_id left join contacts bc on bc.id = o.buyer_contact_id
-        where o.org_id = ${s.orgId} ${closed === "1" ? sql`` : sql`and st.kind in ('open','under_contract')`}
+        where o.org_id = ${s.orgId} ${closed === "1" || view === "forecast" ? sql`` : sql`and st.kind in ('open','under_contract')`}
         order by st.position, o.expected_close_date nulls last`,
   ]);
   const open = rows.filter((r) => r.kind === "open" || r.kind === "under_contract");
@@ -29,7 +32,7 @@ export default async function Opportunities({ searchParams }: { searchParams: Pr
   const t = today();
   return (
     <>
-      <PageHeader title="Opportunities" sub="Visual Kanban board ships in Phase 2. Stage changes here are logged to each deal's timeline."
+      <PageHeader title="Opportunities" sub="Drag deals between stages. Every stage change is logged to the deal's timeline."
         actions={<><ButtonLink variant="secondary" href={closed === "1" ? "/opportunities" : "/opportunities?closed=1"}>{closed === "1" ? "Hide closed" : "Show closed / lost"}</ButtonLink><ButtonLink href="/opportunities/new">New opportunity</ButtonLink></>} />
       <Card className="mb-4 grid grid-cols-2 divide-x divide-ink-100 md:grid-cols-4">
         <Stat label="Open deals" value={open.length} />
@@ -37,7 +40,19 @@ export default async function Opportunities({ searchParams }: { searchParams: Pr
         <Stat label="Potential commission" value={money(comm, { compact: true })} sub="your share, after split" />
         <Stat label="Probability-weighted" value={money(weighted, { compact: true })} sub="commission × probability" />
       </Card>
-      <div className="space-y-4">
+      <div className="mb-3 flex gap-1">
+        {[["board", "Board"], ["list", "List"], ["forecast", "Commission forecast"]].map(([k, l]) => (
+          <a key={k} href={`/opportunities?view=${k}`} className={cn("rounded-md px-3 py-1.5 text-xs", view === k ? "bg-navy-900 text-white" : "text-ink-700 hover:bg-ink-100")}>{l}</a>
+        ))}
+      </div>
+      {view === "board" && (
+        <Board today={t} stages={st.map((x) => ({ id: x.id, name: x.name, kind: x.kind }))}
+          cards={rows.filter((r) => r.kind === "open" || r.kind === "under_contract").map((r) => ({
+            id: r.id, name: r.name, stage_id: r.stage_id, price: r.expected_price ?? r.asking_price ?? null, commission: Number(r.commission), prob: Number(r.prob),
+            next_action: r.next_action, next_action_date: r.next_action_date, party: r.seller_name ?? r.seller_entity ?? r.buyer_name ?? null }))} />
+      )}
+      {view === "forecast" && <Forecast rows={rows.map((r) => ({ kind: r.kind, expected_close_date: r.expected_close_date, closed_at: r.closed_at ? new Date(r.closed_at).toISOString().slice(0, 10) : null, commission: Number(r.commission), prob: Number(r.prob) }))} today={t} />}
+      {view === "list" && <div className="space-y-4">
         {st.filter((x) => rows.some((r) => r.stage_id === x.id)).map((stage) => {
           const list = rows.filter((r) => r.stage_id === stage.id);
           return (
@@ -64,8 +79,8 @@ export default async function Opportunities({ searchParams }: { searchParams: Pr
             </Card>
           );
         })}
-        {!rows.length && <Card className="p-6 text-center text-[13px] text-ink-500">No opportunities yet. Create one from a property page, or <Link href="/opportunities/new" className="text-navy-700 underline">start one here</Link>.</Card>}
-      </div>
+      </div>}
+      {!rows.length && <Card className="p-6 text-center text-[13px] text-ink-500">No opportunities yet. Create one from a property page, or <Link href="/opportunities/new" className="text-navy-700 underline">start one here</Link>.</Card>}
       <p className="mt-3 text-2xs text-ink-500"><Badge>Note</Badge> Commission = (expected price or asking) × commission rate × your split; deal-level values override the defaults in Settings.</p>
     </>
   );

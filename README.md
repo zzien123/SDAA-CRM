@@ -1,8 +1,9 @@
-# SDAA CRM — Phase 1
+# SDAA CRM
 
 Property-centric CRM for San Diego Apartment Advisors. Next.js 15 (App Router) · TypeScript · Tailwind · Postgres (Supabase) · Supabase Auth.
 
-**What works today:** dashboard + daily action center, property database (16k+ rows, filters, CSV export), ownership-entity mapping with
+**What works today:** prospecting lists with an owner call queue and do-not-contact enforcement, ranked buyer matching, Kanban pipeline
+and commission forecast (Phase 2), plus the Phase 1 foundation: dashboard + daily action center, property database (16k+ rows, filters, CSV export), ownership-entity mapping with
 evidence/confidence, owner and contact profiles with unified relationship timelines, buyers with multiple acquisition-criteria profiles,
 basic opportunity pipeline with commission math, tasks with recurrence, universal search, Excel/CSV import with dry run, dedupe, review
 queue and rollback, data-quality dashboard, audit log. See `docs/ARCHITECTURE.md` for the schema and roadmap.
@@ -41,6 +42,7 @@ Sign-in is limited to `ALLOWED_EMAILS`.
 | `npm run entities:reclassify` | Re-run the owner-type classifier on imported owners (manual edits untouched) |
 | `npm test` | Unit tests + importer integration test (uses a throwaway `crm_unit` database) |
 | `node tests/e2e.cjs http://localhost:3001` | 19-step browser workflow test against a dev server on a **test** database |
+| `node tests/e2e-prospecting.cjs …` / `e2e-pipeline.cjs …` | Prospecting queue, suppression, Kanban drag/drop, forecast, buyer outreach |
 
 ## Importing the county list
 
