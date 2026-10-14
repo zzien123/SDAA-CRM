@@ -49,3 +49,17 @@ test("business names without suffix are not people", () => {
   assert.equal(classifyEntity("LOMA PALISADES LIMITED"), "limited_partnership");
   assert.equal(classifyEntity("FRONT PORCH COMMUNITIES & SVCS"), "unknown");
 });
+
+import { firstHouseNumber, inSanDiegoCounty, oneLine, parseCensus, parseNominatim } from "../src/lib/geocode";
+test("geocode helpers", () => {
+  assert.equal(firstHouseNumber("1023-25 12th St"), "1023 12th St");
+  assert.equal(firstHouseNumber("4611-49 Governor Dr"), "4611 Governor Dr");
+  assert.equal(firstHouseNumber("901 S Tremont St"), "901 S Tremont St");
+  assert.equal(oneLine("232-60 Cottonwood", "San Ysidro", null), "232 Cottonwood, San Ysidro, CA");
+  assert.ok(inSanDiegoCounty(33.187, -117.373));
+  assert.ok(!inSanDiegoCounty(34.05, -118.24), "Los Angeles rejected");
+  assert.deepEqual(parseCensus({ result: { addressMatches: [{ coordinates: { x: -117.373312503141, y: 33.186999157332 }, matchedAddress: "901 S TREMONT ST, OCEANSIDE, CA, 92054" }] } }),
+    { lat: 33.186999157332, lng: -117.373312503141, matched: "901 S TREMONT ST, OCEANSIDE, CA, 92054" });
+  assert.equal(parseCensus({ result: { addressMatches: [] } }), null);
+  assert.equal(parseNominatim([{ lat: "32.7", lon: "-117.1", display_name: "x", type: "house" }])?.precise, true);
+});

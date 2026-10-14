@@ -9,6 +9,8 @@ import { LogActivity, NewTask, TaskList, Timeline, type TaskRow, type TimelineIt
 import { AddCoOwnerForm, ChangeOwnerForm, LinkContactForm, ParcelAdder, RemoveParcel, UnlinkContact } from "./client";
 import { PROPERTY_ROLES } from "@/lib/constants";
 import { BuyerMatches } from "@/components/buyer-matches";
+import { ensureGeocoded } from "@/lib/geocode-db";
+import { PropertyMapLoader } from "@/components/property-map-loader";
 import { ago, date, label, money, num } from "@/lib/utils";
 
 const FLAG_TEXT: Record<string, string> = {
@@ -30,6 +32,14 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
   const [p] = await sql`select * from property_overview where id = ${id} and org_id = ${s.orgId}`;
   if (!p) notFound();
 
+  const geo = await ensureGeocoded(s.orgId, id);
+  const hasPin = geo?.latitude !== null && geo?.latitude !== undefined;
+  const neighbors = hasPin ? await sql`
+    select n.id, n.latitude as lat, n.longitude as lng, n.street_address || coalesce(' · ' || n.units || ' units', '') as label
+    from properties n where n.org_id = ${s.orgId} and n.id <> ${id} and n.latitude is not null
+      and n.latitude between ${geo.latitude - 0.008} and ${geo.latitude + 0.008}
+      and n.longitude between ${geo.longitude - 0.009} and ${geo.longitude + 0.009}
+    limit 200` : [];
   const [parcels, owners, history, people, contacts, opps, acts, tasks, reviews] = await Promise.all([
     sql`select id, apn from parcels where property_id = ${id} order by apn`,
     sql`select po.*, e.name, e.entity_type, e.care_of_name, e.mailing_address, e.mailing_city, e.mailing_state, e.mailing_zip, e.phone, e.phone_shared_count,
@@ -190,6 +200,21 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
         </div>
 
         <div className="space-y-4">
+          <Card className="overflow-hidden">
+            <CardHeader title="Location"
+              sub={hasPin ? [geo.geocode_status === "approximate" ? "Approximate — check it" : geo.geocode_status === "manual" ? "Placed by hand" : "Matched", geo.geocode_status !== "manual" ? geo.geocode_source : null, geo.geocode_status !== "manual" ? "drag the pin to fix" : null].filter(Boolean).join(" · ") : "Couldn't place this address automatically"}
+              action={<a className="text-2xs text-navy-700 hover:underline" target="_blank" rel="noreferrer"
+                href={hasPin ? `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${geo.latitude},${geo.longitude}`
+                  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([p.street_address, p.city, "CA", p.zip].filter(Boolean).join(", "))}`}>
+                {hasPin ? "Street View ↗" : "Find on Google Maps ↗"}</a>} />
+            {hasPin
+              ? <PropertyMapLoader id={id} lat={geo.latitude} lng={geo.longitude} neighbors={neighbors.map((n) => ({ id: n.id, lat: n.lat, lng: n.lng, label: n.label }))} />
+              : <p className="px-4 py-3 text-2xs text-ink-500">Address ranges and missing ZIPs sometimes fail. Enter latitude/longitude on the Edit page (right-click the spot in Google Maps to copy them).</p>}
+            {hasPin && <div className="flex justify-between px-4 py-2 text-2xs text-ink-500">
+              <a className="text-navy-700 hover:underline" target="_blank" rel="noreferrer" href={`https://www.google.com/maps/search/?api=1&query=${geo.latitude},${geo.longitude}`}>Open in Google Maps ↗</a>
+              {neighbors.length > 0 && <span>{neighbors.length} other tracked properties nearby (gray)</span>}
+            </div>}
+          </Card>
           <Card>
             <CardHeader title="Tasks" />
             <div className="px-4 py-2"><TaskList tasks={tasks as unknown as TaskRow[]} showLinks={false} /></div>

@@ -186,9 +186,10 @@ const must = (cond, m) => { if (!cond) throw new Fail(m); };
     must(/Contacts Created\s*2/i.test(txt) && /Contacts Matched\s*1/i.test(txt), "contact dedupe wrong: " + txt.slice(0, 300));
     ok("contacts CSV import: 2 created, 1 matched by email (no overwrite)");
     await go("/data");
-    await page.locator("tr:has-text('contacts-sample.csv') button:has-text('Roll back')").click();
+    const row = page.locator("tr:has-text('contacts-sample.csv')").first(); // newest import is listed first
+    await row.locator("button:has-text('Roll back')").click();
     await page.locator("button:has-text('Yes')").click();
-    await page.locator("tr:has-text('contacts-sample.csv') >> text=Rolled Back").waitFor();
+    await row.locator("text=Rolled Back").waitFor();
     await go("/search?q=jane+sample");
     must(!(await visible("a:has-text('Jane Sample')")), "rollback left records");
     ok("import rolled back cleanly");

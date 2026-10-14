@@ -140,7 +140,14 @@ export async function saveProperty(_: unknown, form: FormData): Promise<ActionRe
     if (id) {
       await assertOwned(s, "properties", id);
       const [before] = await sql`select ${sql(Object.keys(row))} from properties where id = ${id}`;
-      await sql`update properties set ${sql(row as never)} where id = ${id} and org_id = ${s.orgId}`;
+      const geo: Record<string, unknown> = {};
+      if (before.address_normalized !== row.address_normalized || String(before.city ?? "") !== String(row.city ?? "")) {
+        if (row.latitude === before.latitude && row.longitude === before.longitude) Object.assign(geo, { latitude: null, longitude: null, geocode_status: null, geocoded_at: null });
+      }
+      if (row.latitude !== null && row.longitude !== null && (row.latitude !== before.latitude || row.longitude !== before.longitude)) {
+        Object.assign(geo, { geocode_status: "manual", geocode_source: "Entered by hand", geocoded_at: new Date() });
+      }
+      await sql`update properties set ${sql({ ...row, ...geo } as never)} where id = ${id} and org_id = ${s.orgId}`;
       const changed = Object.fromEntries(Object.entries(row).filter(([k, v]) => String(before[k] ?? "") !== String(v ?? "")).map(([k, v]) => [k, { from: before[k], to: v }]));
       if (Object.keys(changed).length) await audit(s, "properties", id, "update", changed);
     } else {
@@ -636,5 +643,19 @@ export async function createBuyerOutreach(propertyId: string, opportunityId: str
     })))}`;
     refresh(`/properties/${propertyId}`, opportunityId ? `/opportunities/${opportunityId}` : "/tasks", "/tasks");
     return { ok: true, id: String(ok.length) };
+  } catch (e) { return fail(e); }
+}
+
+// ---------------------------------------------------------------------------- map pin
+export async function setPropertyLocation(propertyId: string, lat: number, lng: number): Promise<ActionResult> {
+  try {
+    const s = await requireSession();
+    await assertOwned(s, "properties", propertyId);
+    if (!(lat > 32 && lat < 34 && lng > -118 && lng < -116)) throw new Error("That spot is outside San Diego County");
+    await sql`update properties set latitude = ${lat}, longitude = ${lng}, geocode_status = 'manual', geocode_source = 'Pin placed by hand', geocoded_at = now()
+              where id = ${propertyId}`;
+    await audit(s, "properties", propertyId, "set_location", { lat, lng });
+    refresh(`/properties/${propertyId}`);
+    return { ok: true };
   } catch (e) { return fail(e); }
 }
