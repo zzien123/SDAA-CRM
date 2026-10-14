@@ -11,6 +11,8 @@ import { PROPERTY_ROLES } from "@/lib/constants";
 import { BuyerMatches } from "@/components/buyer-matches";
 import { ensureGeocoded } from "@/lib/geocode-db";
 import { PropertyMapLoader } from "@/components/property-map-loader";
+import { RecordNav } from "@/components/record-nav";
+import { filtersFromQuery, propertyNeighbors } from "@/lib/property-filters";
 import { ago, date, label, money, num } from "@/lib/utils";
 
 const FLAG_TEXT: Record<string, string> = {
@@ -25,14 +27,19 @@ const FLAG_TEXT: Record<string, string> = {
   multi_parcel: "Multiple APNs: the county list repeated this complex's totals on each parcel, so they were merged into one property",
 };
 
-export default async function PropertyPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PropertyPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ from?: string }> }) {
   const s = await requireSession();
   const { id } = await params;
+  const { from } = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const [p] = await sql`select * from property_overview where id = ${id} and org_id = ${s.orgId}`;
   if (!p) notFound();
 
-  const geo = await ensureGeocoded(s.orgId, id);
+  const listFilters = filtersFromQuery(from);
+  const [geo, nav] = await Promise.all([ensureGeocoded(s.orgId, id), propertyNeighbors(s.orgId, id, listFilters)]);
+  const keep = from ? `?from=${encodeURIComponent(from)}` : "";
+  const listHref = `/properties${from ? `?${from}` : ""}`;
+  const filtered = Object.keys(listFilters).some((k) => k !== "sort" && k !== "dir");
   const hasPin = geo?.latitude !== null && geo?.latitude !== undefined;
   const neighbors = hasPin ? await sql`
     select n.id, n.latitude as lat, n.longitude as lng, n.street_address || coalesce(' · ' || n.units || ' units', '') as label
@@ -68,6 +75,12 @@ export default async function PropertyPage({ params }: { params: Promise<{ id: s
 
   return (
     <>
+      <RecordNav
+        prev={nav.prev ? `/properties/${nav.prev}${keep}` : null}
+        next={nav.next ? `/properties/${nav.next}${keep}` : null}
+        center={nav.pos
+          ? <><Link href={listHref} className="text-navy-700 hover:underline">{filtered ? "Filtered list" : "All properties"}</Link> · {num(nav.pos)} of {num(nav.total)}</>
+          : <Link href={listHref} className="text-navy-700 hover:underline">Back to list</Link>} />
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">

@@ -28,6 +28,8 @@ export default async function Properties({ searchParams }: { searchParams: Promi
     return <Link href={`/properties${qs(base, { sort: key, dir })}`} className={active ? "text-navy-900" : ""}>{text}{active ? (f.dir === "asc" ? " ↑" : " ↓") : ""}</Link>;
   };
   const pages = Math.ceil(n / PAGE);
+  const listQs = qs(base, {}).slice(1);
+  const fromParam = listQs ? `?from=${encodeURIComponent(listQs)}` : "";
   return (
     <>
       <PageHeader title="Properties" sub={`${num(n)} properties · ${num(units)} units`}
@@ -85,7 +87,7 @@ export default async function Properties({ searchParams }: { searchParams: Promi
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td><Link href={`/properties/${r.id}`} className="font-medium text-navy-800 hover:underline">{r.street_address}</Link>
+                <td><Link href={`/properties/${r.id}${fromParam}`} className="font-medium text-navy-800 hover:underline">{r.street_address}</Link>
                   {r.listing_status !== "none" && <Badge tone="green" className="ml-1.5">{label(r.listing_status)}</Badge>}</td>
                 <td className="whitespace-nowrap">{r.city} <span className="text-ink-400">{r.zip}</span></td>
                 <td className="num text-right">{r.units ?? <span className="text-amber-700" title="Unit count unknown">?</span>}</td>

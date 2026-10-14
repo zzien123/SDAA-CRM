@@ -14,8 +14,8 @@ const SORTS: Record<string, string> = {
 
 const int = (v?: string) => (v && /^\d+$/.test(v) ? Number(v) : null);
 
-export function propertyWhere(orgId: string, f: PropertyFilters) {
-  const c = [sql`property_overview.org_id = ${orgId}`];
+export function propertyWhere(orgId: string, f: PropertyFilters, table: "property_overview" | "properties" = "property_overview") {
+  const c = [sql`${sql(table)}.org_id = ${orgId}`];
   if (f.q) for (const w of f.q.toLowerCase().split(/\s+/).filter(Boolean).slice(0, 5)) c.push(sql`(search_text ilike ${"%" + w + "%"} or apns like ${"%" + w + "%"} or lower(owner_name) like ${"%" + w + "%"})`);
   if (f.city) c.push(sql`city = ${f.city}`);
   if (f.zip) c.push(sql`zip = any(${f.zip.split(/[,\s]+/).filter(Boolean)})`);
@@ -36,9 +36,40 @@ export function propertyWhere(orgId: string, f: PropertyFilters) {
   return c.reduce((a, b) => sql`${a} and ${b}`);
 }
 
-export function propertyOrder(f: PropertyFilters) {
+export function propertyOrderExpr(f: PropertyFilters) {
   const col = SORTS[f.sort ?? "units"] ?? "units";
   // "tenure" sorts by sale date: longest tenure = oldest sale first
   const desc = f.sort === "tenure" ? f.dir === "asc" : f.dir !== "asc";
-  return sql`order by ${sql(col)} ${desc ? sql`desc nulls last` : sql`asc nulls last`}, id`;
+  return sql`${sql(col)} ${desc ? sql`desc nulls last` : sql`asc nulls last`}, id`;
+}
+
+export function propertyOrder(f: PropertyFilters) {
+  return sql`order by ${propertyOrderExpr(f)}`;
+}
+
+const FILTER_KEYS = ["q", "city", "zip", "min_units", "max_units", "min_year", "max_year", "min_tenure", "max_tenure", "owner_type",
+  "absentee", "out_of_state", "status", "contacted", "flag", "sort", "dir"] as const;
+
+/** Parse the list context carried in ?from= (the properties list's own query string). Unknown keys are dropped. */
+export function filtersFromQuery(from: string | undefined): PropertyFilters {
+  const p = new URLSearchParams(from ?? "");
+  const f: PropertyFilters = {};
+  for (const k of FILTER_KEYS) { const v = p.get(k); if (v) f[k] = v.slice(0, 200); }
+  return f;
+}
+
+/** Position of a property inside a filtered, sorted list, plus its neighbors. */
+export async function propertyNeighbors(orgId: string, id: string, f: PropertyFilters) {
+  // The plain table is ~10x faster than the overview view; use it unless a filter/sort needs owner or outreach columns.
+  const needsView = !!(f.q || f.owner_type || f.absentee || f.out_of_state || f.contacted || f.sort === "owner" || f.sort === "contacted");
+  const source = needsView ? "property_overview" : "properties";
+  const [r] = await sql`
+    with r as (
+      select id, row_number() over (order by ${propertyOrderExpr(f)}) as rn, count(*) over () as total
+      from ${sql(source)} where ${propertyWhere(orgId, f, source)}
+    ), me as (select rn from r where id = ${id})
+    select (select rn from me)::int as pos, (select total from r limit 1)::int as total,
+           (select id from r where rn = (select rn from me) - 1) as prev,
+           (select id from r where rn = (select rn from me) + 1) as next`;
+  return r as { pos: number | null; total: number | null; prev: string | null; next: string | null };
 }
